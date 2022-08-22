@@ -3,6 +3,7 @@ const { open } = require("sqlite");
 const sqlite3 = require("sqlite3");
 const path = require("path");
 const bcrypt = require("bcrypt");
+const jwt = require("jsonwebtoken");
 
 const app = express();
 app.use(express.json());
@@ -85,6 +86,53 @@ app.post("/register", async (req, res) => {
     // User exists with input username
     res.status(400);
     res.send("User already exists");
+  }
+});
+
+/*
+    End-Point 2: POST /login
+    ------------
+    To authenticate user based on
+    input credentials against the
+    ones stored in user table and
+    accordingly, allow user to login
+    or reject the login request
+*/
+app.post("/login", async (req, res) => {
+  const { username, password } = req.body;
+
+  const queryToGetRequestedUserData = `
+    SELECT *
+    FROM user
+    WHERE username = '${username}';
+    `;
+
+  const requestedUserData = await userDBConnectionObj.get(
+    queryToGetRequestedUserData
+  );
+
+  if (requestedUserData === undefined) {
+    // User not found
+    res.status(400);
+    res.send("Invalid user");
+  } else {
+    // Valid user
+    const isValidPassword = await bcrypt.compare(
+      password,
+      requestedUserData.password
+    );
+    if (isValidPassword) {
+      const userIdentifiablePayload = { username };
+      const generatedJWT = jwt.sign(
+        userIdentifiablePayload,
+        "AUTHORIZATION_SECRET"
+      );
+
+      res.send("Login success!");
+    } else {
+      res.status(400);
+      res.send("Invalid password");
+    }
   }
 });
 
