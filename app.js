@@ -136,4 +136,58 @@ app.post("/login", async (req, res) => {
   }
 });
 
+/*
+    End-Point 3: PUT /change-password
+    ------------
+    To update user password
+*/
+app.put("/change-password", async (req, res) => {
+  const { username, oldPassword, newPassword } = req.body;
+
+  const queryToGetRequestedUserData = `
+    SELECT *
+    FROM user
+    WHERE username = '${username}';
+    `;
+
+  const requestedUserData = await userDBConnectionObj.get(
+    queryToGetRequestedUserData
+  );
+  if (requestedUserData === undefined) {
+    res.status(400);
+    res.send("Invalid user");
+  } else {
+    const isOldPasswordValid = await bcrypt.compare(
+      oldPassword,
+      requestedUserData.password
+    );
+    if (isOldPasswordValid) {
+      if (newPassword.length < 5) {
+        res.status(400);
+        res.send("Password is too short");
+      } else {
+        const hashedNewPassword = await bcrypt.hash(
+          newPassword,
+          saltRoundsForBcryptHashing
+        );
+
+        const queryToUpdateUserPassword = `
+                UPDATE
+                    user
+                SET
+                    password = '${hashedNewPassword}'
+                WHERE
+                    username = '${username}';
+                `;
+
+        await userDBConnectionObj.run(queryToUpdateUserPassword);
+        res.send("Password updated");
+      }
+    } else {
+      res.status(400);
+      res.send("Invalid current password");
+    }
+  }
+});
+
 module.exports = app;
